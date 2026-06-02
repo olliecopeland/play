@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arsenal Data Explorer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Arsenal Data Explorer</h1>
+      <p>Interactive view of matches, players, and goalkeepers from the Arsenal dataset.</p>
+    </div>
+    <nav>
+      <button data-dataset="matches" class="active">Matches</button>
+      <button data-dataset="players">Players</button>
+      <button data-dataset="goalkeepers">Goalkeepers</button>
+      <button data-dataset="referees">Referees</button>
+      <button data-dataset="coaches">Coaches</button>
+      <button data-dataset="grounds">Grounds</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="loading" id="loading">Loading data...</section>
+    <section id="diagnostics" class="diagnostics"></section>
+
+    <section class="dashboard hidden" id="dashboard">
+      <div class="panel" id="summary-panel"></div>
+      <div class="panel filters" id="filters-panel"></div>
+    </section>
+
+    <section class="table-wrapper hidden" id="table-section">
+      <div class="table-header">
+        <h2 id="table-title"></h2>
+        <span id="row-count"></span>
+      </div>
+      <div class="table-scroll">
+        <table id="data-table"></table>
+      </div>
+    </section>
+
+    <section class="chart hidden" id="chart-section"></section>
+
+    <section class="insight hidden" id="insight-section"></section>
+  </main>
+
+  <footer>
+    <p>Run a local server and open <strong>http://localhost:8000</strong> to use this page.</p>
+    <p>Use <code>python3 run_local.py</code> or <code>python3 -m http.server</code> from this folder.</p>
+  </footer>
+
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="script.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+:root {
+  --bg: #0e1526;
+  --surface: #14213d;
+  --surface-alt: #1d2b4f;
+  --text: #f8f9fa;
+  --muted: #a3aed0;
+  --accent: #fca311;
+  --border: rgba(248, 249, 250, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, rgba(252, 163, 17, 0.14), transparent 25%),
+    linear-gradient(180deg, #0b1220 0%, #0a101f 100%);
+}
+
+header {
+  padding: 1.8rem 2rem 1rem;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.5vw, 2.8rem);
+}
+
+.brand p {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+}
+
+nav {
+  margin-top: 1.6rem;
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+nav button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+nav button.active,
+nav button:hover {
+  background: var(--accent);
+  color: #121212;
+  transform: translateY(-1px);
+}
+
+main {
+  padding: 0 2rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading {
+  margin: 2rem auto;
+  text-align: center;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.panel {
+  background: rgba(20, 33, 77, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  padding: 1.4rem;
+  margin-top: 1.6rem;
+}
+
+.filters {
+  display: grid;
+  gap: 1rem;
+}
+
+.filters label,
+.filters select {
+  display: block;
+  width: 100%;
+}
+
+select {
+  color: #121212;
+}
+
+select option {
+  color: #121212;
+}
+
+.filters select {
+  margin-top: 0.5rem;
+  padding: 0.8rem 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: #121212;
+}
+
+.filters select option {
+  color: #121212;
+}
+
+.table-wrapper {
+  margin-top: 1.6rem;
+}
+
+.table-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.table-header h2 {
+  margin: 0;
+}
+
+.table-header span {
+  color: var(--muted);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-top: 1rem;
+  border-radius: 1.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+th,
+td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+tbody tr:hover {
+  background: rgba(252, 163, 17, 0.08);
+}
+
+.coach-row button {
+  background: rgba(252, 163, 17, 0.15);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.coach-row button:hover {
+  background: rgba(252, 163, 17, 0.25);
+}
+
+.season-sub-row {
+  background: rgba(29, 43, 79, 0.6) !important;
+}
+
+.season-sub-row:hover {
+  background: rgba(252, 163, 17, 0.12) !important;
+}
+
+.insight {
+  margin-top: 1.6rem;
+  padding: 1.4rem;
+  background: rgba(20, 33, 77, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+}
+
+.insight h3 {
+  margin-top: 0;
+}
+
+.chart {
+  margin-top: 1.6rem;
+  padding: 1.4rem;
+  background: rgba(20, 33, 77, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+}
+
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.chart-controls label {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.chart-controls select {
+  margin-top: 0.5rem;
+  min-width: 180px;
+  padding: 0.8rem 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: #121212;
+}
+
+.chart-controls select option {
+  color: #121212;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 360px;
+  overflow: visible;
+}
+
+.chart-no-data {
+  color: var(--muted);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1rem;
+}
+
+.metric-card h4 {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+}
+
+.metric-card p {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+footer {
+  padding: 1.6rem 2rem 2rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  th,
+  td {
+    padding: 0.8rem 0.75rem;
+  }
+}
