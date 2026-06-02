@@ -4,6 +4,22 @@ const DATASETS = {
   goalkeepers: "goalkeepers.csv",
 };
 
+const STAT_SERIES = {
+  XG: "Expected Goals",
+  XGA: "Expected Goals Against",
+  GoalsFor: "Goals For",
+  GoalsAgainst: "Goals Against",
+  PointsPerGame: "Points Per Game",
+};
+
+const STAT_COLORS = [
+  "#fca311",
+  "#e63946",
+  "#2a9d8f",
+  "#8ac926",
+  "#7b2cbf",
+];
+
 const TREND_FIELDS = {
   players: {
     G: "Goals",
@@ -48,6 +64,7 @@ const state = {
   filters: {},
   expandedCoaches: {},
   trend: {},
+  stats: { active: [] },
 };
 
 function showError(msg) {
@@ -521,6 +538,8 @@ function getCurrentData() {
       return getGroundSummary(ds.matches || []);
     case "coaches":
       return getCoachSummary(ds.matches || []);
+    case "stats":
+      return sortMatchesBySeason(ds.matches || []);
     default:
       return ds[state.current] || [];
   }
@@ -595,6 +614,7 @@ function setDataset(dataset) {
   state.filters = {};
   state.expandedCoaches = {};
   state.trend = {};
+  state.stats.active = [];
   renderCurrent();
 }
 
@@ -604,11 +624,20 @@ function renderCurrent() {
   rowCountEl.textContent = `${data.length.toLocaleString()} rows`;
   renderSummary(data);
   renderFilters(data);
-  renderTable(data);
+
+  if (state.current === "stats") {
+    tableSectionEl.classList.add("hidden");
+    insightSectionEl.classList.add("hidden");
+  } else {
+    tableSectionEl.classList.remove("hidden");
+    insightSectionEl.classList.remove("hidden");
+    renderTable(data);
+    renderInsight(data);
+  }
+
   if (typeof renderChart === "function") {
     renderChart(data);
   }
-  renderInsight(data);
 }
 
 function renderSummary(data) {
@@ -616,9 +645,16 @@ function renderSummary(data) {
   const title = document.createElement("h2");
   const total = document.createElement("p");
   title.textContent = `${state.current.charAt(0).toUpperCase() + state.current.slice(1)} summary`;
-  total.textContent = `Dataset has ${data.length.toLocaleString()} records.`;
+  total.textContent = state.current === "stats"
+    ? `Matches available: ${data.length.toLocaleString()}`
+    : `Dataset has ${data.length.toLocaleString()} records.`;
   summaryPanelEl.appendChild(title);
   summaryPanelEl.appendChild(total);
+  if (state.current === "stats") {
+    const description = document.createElement("p");
+    description.textContent = "Toggle the normalized series below to compare match metrics on the same time axis.";
+    summaryPanelEl.appendChild(description);
+  }
 }
 
 function createSelect(labelText, name, options) {
@@ -904,9 +940,297 @@ function getMatchTrend(datasetKey, entityKey, field) {
   return blocks;
 }
 
+function getStatsSeries() {
+  const byMatch = {};
+  (state.datasets.matches || []).forEach((match) => {
+    const key = `${match.Date || ""}`;
+    const date = parseDate(match.Date);
+    const arsenal = Number(match.ArsenalScore);
+    const opponent = Number(match.OpponentScore);
+    const points = arsenal > opponent ? 3 : arsenal === opponent ? 1 : 0;
+
+    byMatch[key] = {
+      season: match.Season || "Unknown",
+      date,
+      dateLabel: match.Season || "Unknown",
+      ArsenalGoals: Number.isNaN(arsenal) ? 0 : arsenal,
+      OpponentGoals: Number.isNaN(opponent) ? 0 : opponent,
+      Points: points,
+      xG: 0,
+      xGA: 0,
+    };
+  });
+
+  (state.datasets.players || []).forEach((player) => {
+    const key = `${player.Date || ""}`;
+    if (!byMatch[key]) return;
+    const xG = Number(player.xG);
+    const xGA = Number(player.xAG);
+    if (!Number.isNaN(xG)) byMatch[key].xG += xG;
+    if (!Number.isNaN(xGA)) byMatch[key].xGA += xGA;
+  });
+
+  const seasonData = {};
+  Object.values(byMatch).forEach((match) => {
+    const season = match.season || "Unknown";
+    if (!seasonData[season]) {
+      seasonData[season] = {
+        season,
+        matches: 0,
+        totalXG: 0,
+        totalXGA: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        totalPoints: 0,
+      };
+    }
+    const row = seasonData[season];
+    row.matches += 1;
+    row.totalXG += match.xG;
+    row.totalXGA += match.xGA;
+    row.goalsFor += match.ArsenalGoals;
+    row.goalsAgainst += match.OpponentGoals;
+    row.totalPoints += match.Points;
+  });
+
+  return Object.values(seasonData)
+    .sort((a, b) => {
+      const yearA = seasonStartYear(a.season);
+      const yearB = seasonStartYear(b.season);
+      return yearA - yearB;
+    })
+    .map((season) => ({
+      season: season.season,
+      label: season.season,
+      XG: season.matches ? season.totalXG / season.matches : 0,
+      XGA: season.matches ? season.totalXGA / season.matches : 0,
+      GoalsFor: season.matches ? season.goalsFor / season.matches : 0,
+      GoalsAgainst: season.matches ? season.goalsAgainst / season.matches : 0,
+      PointsPerGame: season.matches ? season.totalPoints / season.matches : 0,
+    }));
+}
+
+function normalizeSeries(series, key) {
+  const values = series.map((item) => item[key]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return series.map((item) => ({
+    ...item,
+    normalized: (item[key] - min) / range,
+  }));
+}
+
+function renderStatsChart() {
+  const series = getStatsSeries();
+  if (!series.length) {
+    chartSectionEl.classList.remove("hidden");
+    chartSectionEl.innerHTML = "<p class='chart-no-data'>No stats available.</p>";
+    return;
+  }
+
+  const stats = Object.keys(STAT_SERIES);
+  let activeStats = state.stats.active.length ? state.stats.active : ["XG", "XGA", "GoalsFor", "GoalsAgainst", "PointsPerGame"];
+  activeStats = activeStats.filter((key) => stats.includes(key));
+  if (!activeStats.length) activeStats = ["XG", "XGA", "GoalsFor", "GoalsAgainst", "PointsPerGame"];
+  state.stats.active = activeStats;
+
+  const controls = document.createElement("div");
+  controls.className = "chart-controls";
+  const controlLabel = document.createElement("div");
+  controlLabel.textContent = "Toggle stats";
+  controlLabel.style.fontWeight = "700";
+  controlLabel.style.color = "var(--muted)";
+  controls.appendChild(controlLabel);
+
+  stats.forEach((stat, index) => {
+    const label = document.createElement("label");
+    label.style.display = "flex";
+    label.style.alignItems = "center";
+    label.style.gap = "0.5rem";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = stat;
+    checkbox.checked = activeStats.includes(stat);
+    checkbox.addEventListener("change", () => {
+      const next = new Set(state.stats.active);
+      if (checkbox.checked) next.add(stat);
+      else next.delete(stat);
+      state.stats.active = [...next];
+      renderStatsChart();
+    });
+    const colorSwatch = document.createElement("span");
+    colorSwatch.style.display = "inline-block";
+    colorSwatch.style.width = "14px";
+    colorSwatch.style.height = "14px";
+    colorSwatch.style.backgroundColor = STAT_COLORS[index % STAT_COLORS.length];
+    colorSwatch.style.borderRadius = "3px";
+    label.appendChild(checkbox);
+    label.appendChild(colorSwatch);
+    label.appendChild(document.createTextNode(STAT_SERIES[stat]));
+    controls.appendChild(label);
+  });
+
+  chartSectionEl.classList.remove("hidden");
+  chartSectionEl.innerHTML = "";
+  chartSectionEl.appendChild(controls);
+
+  const title = document.createElement("h3");
+  title.textContent = "Normalized season metrics over time";
+  chartSectionEl.appendChild(title);
+
+  const note = document.createElement("p");
+  note.className = "chart-note";
+  note.textContent = "All metrics are shown on a per-game basis and normalized for comparison. Hover points to see the actual per-game values.";
+  chartSectionEl.appendChild(note);
+
+  const activeSeries = series.map((item) => ({ ...item }));
+  const normalizedSeries = activeStats.map((stat, index) => ({
+    key: stat,
+    label: STAT_SERIES[stat],
+    color: STAT_COLORS[index % STAT_COLORS.length],
+    values: normalizeSeries(activeSeries, stat),
+    actualValues: activeSeries.map((item) => item[stat]),
+  }));
+
+  const summaryBlock = document.createElement("div");
+  summaryBlock.className = "chart-stat-summary";
+  normalizedSeries.forEach((seriesItem) => {
+    const values = seriesItem.actualValues.filter((v) => typeof v === "number" && !Number.isNaN(v));
+    const min = values.length ? Math.min(...values) : 0;
+    const max = values.length ? Math.max(...values) : 0;
+    const avg = values.length ? (values.reduce((sum, v) => sum + v, 0) / values.length) : 0;
+    const statLine = document.createElement("div");
+    statLine.className = "chart-stat-summary-item";
+    statLine.innerHTML = `<strong style="color:${seriesItem.color}">${seriesItem.label}</strong>: min ${formatNumber(min)}, avg ${formatNumber(avg)}, max ${formatNumber(max)}`;
+    summaryBlock.appendChild(statLine);
+  });
+  chartSectionEl.appendChild(summaryBlock);
+
+  const svg = createSvgElement("svg");
+  svg.classList.add("chart-svg");
+  svg.setAttribute("viewBox", "0 0 900 360");
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "chart-tooltip hidden";
+  chartSectionEl.appendChild(tooltip);
+
+  const showInlineLabels = activeSeries.length <= 8;
+
+  const margin = { top: 30, right: 30, bottom: 60, left: 55 };
+  const width = 900;
+  const height = 360;
+  const chartWidth = width - margin.left - margin.right;
+  const chartHeight = height - margin.top - margin.bottom;
+
+  const points = activeSeries.map((item, index) => ({
+    x: margin.left + (chartWidth * index) / Math.max(activeSeries.length - 1, 1),
+    label: item.season || item.label || item.dateLabel,
+  }));
+
+  const axis = createSvgElement("g");
+  axis.setAttribute("fill", "none");
+  axis.setAttribute("stroke", "rgba(255,255,255,0.12)");
+  for (let i = 0; i <= 4; i += 1) {
+    const y = margin.top + (chartHeight * i) / 4;
+    const line = createSvgElement("line");
+    line.setAttribute("x1", margin.left);
+    line.setAttribute("x2", width - margin.right);
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    axis.appendChild(line);
+    const label = createSvgElement("text");
+    label.setAttribute("x", margin.left - 8);
+    label.setAttribute("y", y + 4);
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("font-size", "12");
+    label.setAttribute("fill", "var(--muted)");
+    label.textContent = `${((1 - i / 4) * 100).toFixed(0)}%`;
+    axis.appendChild(label);
+  }
+  const yAxisLabel = createSvgElement("text");
+  yAxisLabel.setAttribute("x", margin.left - 30);
+  yAxisLabel.setAttribute("y", margin.top - 10);
+  yAxisLabel.setAttribute("text-anchor", "middle");
+  yAxisLabel.setAttribute("font-size", "12");
+  yAxisLabel.setAttribute("fill", "var(--muted)");
+  yAxisLabel.textContent = "Normalized";
+  axis.appendChild(yAxisLabel);
+  svg.appendChild(axis);
+
+  const updateTooltip = (event, text) => {
+    const rect = chartSectionEl.getBoundingClientRect();
+    tooltip.textContent = text;
+    tooltip.classList.remove("hidden");
+    const left = Math.min(rect.width - tooltip.offsetWidth - 12, event.clientX - rect.left + 12);
+    const top = Math.max(12, event.clientY - rect.top + 12);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  };
+
+  normalizedSeries.forEach((seriesItem) => {
+    const path = createSvgElement("path");
+    const d = seriesItem.values
+      .map((item, index) => {
+        const y = margin.top + chartHeight - item.normalized * chartHeight;
+        return `${index === 0 ? "M" : "L"}${points[index].x},${y}`;
+      })
+      .join(" ");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", seriesItem.color);
+    path.setAttribute("stroke-width", "2");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+
+    seriesItem.values.forEach((item, index) => {
+      const y = margin.top + chartHeight - item.normalized * chartHeight;
+      const circle = createSvgElement("circle");
+      circle.setAttribute("cx", points[index].x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", "5");
+      circle.setAttribute("fill", seriesItem.color);
+      const valueText = `${seriesItem.label} (${points[index].label}): ${formatNumber(item[seriesItem.key])}`;
+      circle.addEventListener("pointerenter", (event) => updateTooltip(event, valueText));
+      circle.addEventListener("pointermove", (event) => updateTooltip(event, valueText));
+      circle.addEventListener("pointerleave", () => tooltip.classList.add("hidden"));
+      svg.appendChild(circle);
+
+      if (showInlineLabels) {
+        const valueLabel = createSvgElement("text");
+        valueLabel.setAttribute("x", points[index].x);
+        valueLabel.setAttribute("y", y - 8);
+        valueLabel.setAttribute("text-anchor", "middle");
+        valueLabel.setAttribute("font-size", "11");
+        valueLabel.setAttribute("fill", seriesItem.color);
+        valueLabel.textContent = formatNumber(item[seriesItem.key]);
+        svg.appendChild(valueLabel);
+      }
+    });
+  });
+
+  const labelStep = Math.max(1, Math.ceil(activeSeries.length / 10));
+  activeSeries.forEach((item, index) => {
+    if (index % labelStep !== 0 && index !== activeSeries.length - 1) return;
+    const text = createSvgElement("text");
+    text.setAttribute("x", points[index].x);
+    text.setAttribute("y", height - 10);
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("font-size", "12");
+    text.setAttribute("fill", "var(--muted)");
+    text.textContent = points[index].label || item.season || item.label || item.dateLabel;
+    svg.appendChild(text);
+  });
+
+  chartSectionEl.appendChild(svg);
+}
 
 function renderChart() {
   if (!chartSectionEl) return;
+  if (state.current === "stats") {
+    renderStatsChart();
+    return;
+  }
   if (!["players", "goalkeepers"].includes(state.current)) {
     chartSectionEl.classList.add("hidden");
     chartSectionEl.innerHTML = "";
